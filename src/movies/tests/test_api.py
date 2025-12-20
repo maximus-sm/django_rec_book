@@ -14,7 +14,7 @@ from movies.models import Movie
 @pytest.mark.django_db
 def test_create_movie(client):
     url = reverse("movies:movie-list")
-    data = json.dumps({"title": "A New Hope", "genres": ["Sci-Fi", "Drama"]})
+    data = json.dumps({"title": "A New Hope", "genres": ["Sci-Fi", "Drama"],"year":2004})
     # print(data)
     response = client.post(path=url, data=data, content_type="application/json")
     # wrong attribute json.Why?
@@ -22,8 +22,7 @@ def test_create_movie(client):
     # print(response.json) # no respone.json()
     assert response.status_code == status.HTTP_201_CREATED, response.json()
     assert Movie.objects.filter(title="A New Hope").count() == 1
-
-
+    
 @pytest.mark.django_db
 def test_retrieve_movie(client):
     movie = MovieFactory()
@@ -35,6 +34,7 @@ def test_retrieve_movie(client):
         "id": movie.id,
         "title": movie.title,
         "genres": movie.genres,
+        "year" : movie.year
     }
 
 
@@ -88,3 +88,7 @@ def test_list_movies_with_pagination(client):
     # But in this case, if all movies fit on one page:
     assert data["next"] is None
     assert data["previous"] is None
+
+
+    
+    

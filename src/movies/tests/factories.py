@@ -2,6 +2,8 @@ from factory.django import DjangoModelFactory
 from factory.faker import Faker
 from movies.models import Movie
 from functools import wraps
+from random import randint
+
 
 class MovieFactory(DjangoModelFactory):
     class Meta:
@@ -11,6 +13,10 @@ class MovieFactory(DjangoModelFactory):
     genres = Faker(
         "pylist", nb_elements=3, variable_nb_elements=True, value_types=["str"]
     )
+    # year = Faker("year")
+    # year = randint(1800, 2100)
+    year = Faker("pyint", min_value=1800, max_value=2100)
+
 
 
 # unsaved_movie = MovieFactory.build()
@@ -37,9 +43,9 @@ class MovieFactory(DjangoModelFactory):
 # core()
 
 # core = shell(core)
-   
+
 # core()
-    
+
 # @shell
 # def inner():
 #     print("I am the function which needs some decoration to "

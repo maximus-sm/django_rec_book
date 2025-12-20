@@ -24,8 +24,10 @@ from .models import Movie
 #         instance.save()
 #         return instance
 
-
+# Note that model has default values for genres and year attribute.
+# So when the put method used upon one movie entity with omitted genres and year attribute in the json
+# the serializer nevertheless validated this json.
 class MovieSerializer(serializers.ModelSerializer):
     class Meta:
         model = Movie
-        fields = ["id", "title", "genres"]
+        fields = ["id", "title", "genres", "year"]
