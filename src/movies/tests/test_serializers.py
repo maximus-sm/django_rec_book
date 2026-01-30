@@ -6,7 +6,13 @@ from movies.serializers import MovieSerializer
 @pytest.mark.django_db
 def test_valid_movie_serializer():
     # Given valid movie data
-    valid_data = {"title": "Inception", "genres": ["Action", "Sci-Fi"], "year": 2005}
+    valid_data = {
+        "title": "Inception",
+        "genres": ["Action", "Sci-Fi"],
+        "country": "Brasil",
+        "extra_data": {},
+        "release_year": 2005,
+    }
     # When we create a serializer instance with this data
     serializer = MovieSerializer(data=valid_data)
     # Then, the serializer should be a valid
@@ -18,7 +24,9 @@ def test_valid_movie_serializer():
     created_movie = Movie.objects.get()
     assert created_movie.title == valid_data["title"]
     assert created_movie.genres == valid_data["genres"]
-    assert created_movie.year == valid_data["year"]
+    assert created_movie.release_year == valid_data["release_year"]
+    assert created_movie.country == valid_data["country"]
+    assert created_movie.extra_data == valid_data["extra_data"]
 
 
 @pytest.mark.django_db
@@ -37,7 +45,10 @@ def test_invalid_movie_serializer():
 def test_serialize_movie_instance():
     # Given a movie instance
     movie = Movie.objects.create(
-        title="Inception", genres=["Action", "Sci-Fi"], year=2010
+        title="Inception",
+        genres=["Action", "Sci-Fi"],
+        release_year=2010,
+        country="Columbia",
     )
     # When we serialize the movie
     serializer = MovieSerializer(movie)
@@ -46,5 +57,7 @@ def test_serialize_movie_instance():
         "id": movie.id,
         "title": movie.title,
         "genres": movie.genres,
-        "year": movie.year,
+        "release_year": movie.release_year,
+        "extra_data": movie.extra_data,
+        "country": movie.country,
     }

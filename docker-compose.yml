@@ -1,0 +1,74 @@
+version: '3.8'
+services:
+    redis:
+      image: redis:alpine
+      ports:
+      - "6379:6379"
+    minio:
+      image: minio/minio
+      volumes:
+        - minio_data:/data
+      ports:
+        - "9000:9000"
+        - "9001:9001"
+      command: server /data --console-address ":9001"
+      environment:
+        MINIO_ROOT_USER: minioadmin
+        MINIO_ROOT_PASSWORD: minioadmin
+    minio-setup:
+      image: minio/mc
+      depends_on:
+        - minio
+      entrypoint: >
+        /bin/sh -c "
+        until /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin; do
+          echo 'Waiting for MinIO server...';
+          sleep 1;
+        done;
+        if ! /usr/bin/mc ls myminio/test-bucket > /dev/null 2>&1; then
+          /usr/bin/mc mb myminio/test-bucket;
+          echo 'Bucket test-bucket created.';
+        fi;
+        /usr/bin/mc anonymous set download myminio/test-bucket;
+        echo 'Setup complete.';
+        exit 0;
+        "
+volumes:
+  minio_data:
+
+
+ # /bin/sh -c "
+        # # use alias set instead config add host
+        # # /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin;
+        # until /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin 
+        # do 
+        #     echo 'Waiting for MinIO server...'; 
+        #     sleep 1; 
+        # done;
+        # /usr/bin/mc rm -r --force myminio/test-bucket;
+        # /usr/bin/mc mb myminio/test-bucket;
+        # /usr/bin/mc anonymous set download myminio/test-bucket;
+        # exit 0;
+        # "
+
+  #       services:
+  # minio:
+  #   image: minio/minio
+  #   # ... other settings ...
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 5
+
+  # minio-setup:
+  #   image: minio/mc
+  #   depends_on:
+  #     minio:
+  #       condition: service_healthy  # This is the "smart" version of depends_on
+  #   entrypoint: |
+  #     /bin/sh -c "
+  #     /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin;
+  #     /usr/bin/mc mb --ignore-existing myminio/test-bucket;
+  #     /usr/bin/mc anonymous set download myminio/test-bucket;
+  #     "
