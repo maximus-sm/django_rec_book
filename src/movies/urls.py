@@ -4,6 +4,7 @@ from django.urls import path
 from .api import (
     MovieListCreateAPIView,
     MovieDetailAPIView,
+    MovieRecommendationAPIView,
     UserPreferencesView,
     WatchHistoryView,
     GeneralUploadView,
@@ -30,4 +31,9 @@ urlpatterns = [
         name="user-watch-history",
     ),
     path("upload/", GeneralUploadView.as_view(), name="file-upload"),
+    path(
+        "recommendations/",
+        MovieRecommendationAPIView.as_view(),
+        name="movie-recommendations",
+    ),
 ]

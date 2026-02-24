@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+import os
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -39,13 +41,19 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # 3rd-party
     "rest_framework",
+    "rest_framework.authtoken",
+    "rest_framework_simplejwt",
     "storages",
     # local
     "movies",
     "books",
+    "api_auth",
 ]
 
 MIDDLEWARE = [
+    # custom
+    "movies.middlewares.RequestTimeMiddleware",
+    # built-in
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -79,15 +87,28 @@ WSGI_APPLICATION = "recommendation_system.wsgi.application"
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
+    # "default": {
+    #     "ENGINE": "django.db.backends.sqlite3",
+    #     "NAME": BASE_DIR / "db.sqlite3",
+    # }
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("POSTGRES_DB", "yourdatabase"),
+        "USER": os.getenv("POSTGRES_USER", "yourusername"),
+        "PASSWORD": os.getenv("POSTGRES_PASSWORD", "yourpassword"),
+        "HOST": os.getenv("POSTGRES_HOST", "localhost"),
+        "PORT": os.getenv("POSTGRES_PORT", "5432"),
     }
 }
 
-
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
+
+# ensure that every http call redirected to httpS
+# SECURE_SSL_REDIRECT = True
+# SECURE_HSTS_SECONDS = 3600
+# SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+# SECURE_HSTS_PRELOAD = True
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -107,6 +128,11 @@ AUTH_PASSWORD_VALIDATORS = [
 REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 10,
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        # "rest_framework.authentication.BasicAuthentication",
+        "rest_framework.authentication.TokenAuthentication",
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
 }
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
@@ -127,25 +153,65 @@ STATIC_URL = "static/"
 
 
 # Celery
-import os
 
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
 
+from botocore import config
+
 # AWS and MinIO
 # DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
-# STORAGES = {
-#     "default": {
-#         "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
-#     },
-#     "staticfiles": {
-#         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
-#     },
-# }
+# Comment out to use default storage.
+STORAGES = {
+    "default": {
+        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+        # "OPTIONS": {"signature_version": "s3"},
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        # "OPTIONS": {"signature_version": "s3"},
+        "config": config.Config(
+            s3={"expect_100_continue": False},
+            signature_version="s3v4",
+            retries={"max_attempts": 3},
+        ),
+    },
+}
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "minioadmin")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "minioadmin")
-# AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME", "mybucket")
 AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL", "http://localhost:9000")
-AWS_S3_CUSTOM_DOMAIN = os.getenv("AWS_S3_CUSTOM_DOMAIN", "localhost:9000")
-AWS_S3_USE_SSL = os.getenv("AWS_S3_USE_SSL", "True") == "True"
+# AWS_S3_CUSTOM_DOMAIN = os.getenv("AWS_S3_CUSTOM_DOMAIN", "localhost:9000")
+AWS_S3_USE_SSL = os.getenv("AWS_S3_USE_SSL", "True") == "False"
 AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME", "test-bucket")
+AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+AWS_S3_REGION_NAME = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+AWS_S3_SIGNATURE_VERSION = "s3v4"
+AWS_S3_ADDRESSING_STYLE = "path"
+
+# For boto3 >= 1.36.0
+# AWS_REQUEST_CHECKSUM_CALCULATION = "when_required"
+# AWS_RESPONSE_CHECKSUM_VALIDATION = "when_required"
+
+# LOGGING = {
+#     "version": 1,
+#     "disable_existing_loggers": False,
+#     "handlers": {
+#         "console": {
+#             "class": "logging.StreamHandler",
+#         },
+#     },
+#     "loggers": {
+#         "boto3": {
+#             "handlers": ["console"],
+#             "level": "DEBUG",
+#         },
+#         "botocore": {
+#             "handlers": ["console"],
+#             "level": "DEBUG",
+#         },
+#         "storages": {
+#             "handlers": ["console"],
+#             "level": "DEBUG",
+#         },
+#     },
+# }

@@ -9,7 +9,7 @@ import datetime
 class Movie(models.Model):
     title = models.CharField(max_length=255)
     genres = models.JSONField(default=list)
-    country = models.CharField(max_length=100, blank=True, null=True)
+    country = models.CharField(max_length=250, blank=True, null=True)
     extra_data = models.JSONField(default=dict)
     release_year = models.IntegerField(
         validators=[

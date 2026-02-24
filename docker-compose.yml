@@ -15,6 +15,7 @@ services:
       environment:
         MINIO_ROOT_USER: minioadmin
         MINIO_ROOT_PASSWORD: minioadmin
+        # MINIO_STORAGE_REGION: eu-central-1
     minio-setup:
       image: minio/mc
       depends_on:
@@ -33,8 +34,20 @@ services:
         echo 'Setup complete.';
         exit 0;
         "
+    postgres:
+      image: postgres:latest
+      environment:
+        POSTGRES_USER: yourusername
+        POSTGRES_PASSWORD: yourpassword
+        POSTGRES_DB: yourdatabase
+      volumes:
+        - postgres_data:/var/lib/postgresql
+      ports:
+        - "5432:5432"
 volumes:
   minio_data:
+  postgres_data:
+  
 
 
  # /bin/sh -c "
@@ -72,3 +85,5 @@ volumes:
   #     /usr/bin/mc mb --ignore-existing myminio/test-bucket;
   #     /usr/bin/mc anonymous set download myminio/test-bucket;
   #     "
+
+  

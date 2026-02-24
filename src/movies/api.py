@@ -1,16 +1,31 @@
+from typing import Optional
+
+from django_ratelimit.decorators import ratelimit
+from django.utils.decorators import method_decorator
+from django.shortcuts import get_object_or_404
+
 from rest_framework import status, generics
 from rest_framework.response import Response
 from rest_framework.request import Request
 from rest_framework.views import APIView
-from .models import Movie
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.decorators import permission_classes
+
+from .models import Movie, UserMoviePreferences
 from .serializers import MovieSerializer
-from django.shortcuts import get_object_or_404
+from api_auth.permissions import CustomDjangoModelPermissions
 from movies.serializers import AddPreferenceSerializer, AddToWatchHistorySerializer
 from movies.services import (
     add_preference,
     user_preferences,
     add_watch_history,
     user_watch_history,
+)
+from recommendations.services import (
+    UserPreferences,
+    Item,
+    get_recommendations,
+    format_to_json,
 )
 
 # class MovieAPIView(views.APIView):
@@ -60,17 +75,21 @@ from movies.services import (
 
 
 # For listing all movies and creating a new movie
+@method_decorator(ratelimit(key="ip", rate="5/m", method="GET", block=True), name="get")
 class MovieListCreateAPIView(generics.ListCreateAPIView):
     queryset = Movie.objects.all().order_by("id")
     serializer_class = MovieSerializer
+    permission_classes = [IsAuthenticated, CustomDjangoModelPermissions]
 
 
 # For retrieving, updating, and deleting a single movie
+@permission_classes([IsAuthenticated, CustomDjangoModelPermissions])
 class MovieDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Movie.objects.all()
     serializer_class = MovieSerializer
 
 
+@permission_classes([IsAuthenticated])
 class UserPreferencesView(APIView):
     """
     View to add new user preferences and retrieve them.
@@ -88,6 +107,7 @@ class UserPreferencesView(APIView):
         return Response(data)
 
 
+@permission_classes([IsAuthenticated])
 class WatchHistoryView(APIView):
     """
     View to retrieve and add movies to the user's watch history.
@@ -165,6 +185,7 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 
 
+@permission_classes([IsAuthenticated])
 class GeneralUploadView(APIView):
     def post(self, request, *args: Any, **kwargs: Any) -> Response:
         serializer = GeneralFileUploadSerializer(data=request.data)
@@ -179,6 +200,7 @@ class GeneralUploadView(APIView):
             file_name = default_storage.save(
                 unique_file_name, ContentFile(uploaded_file.read())
             )
+            uploaded_file.seek(0)
             process_file.delay(file_name, file_type)
             return Response(
                 {"message": f"Job enqueued for processing."},
@@ -186,3 +208,83 @@ class GeneralUploadView(APIView):
             )
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MovieRecommendationAPIView(APIView):
+    def get(self, request):
+        user_id = request.query_params.get("user_id")
+        if not user_id:
+            return self._response_error(
+                detail="user_id query parameter is required.",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        user_preferences = self._get_user_preferences(user_id)
+        if not user_preferences:
+            return self._response_error(
+                detail="User preferences not found.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+        recommended_items = self._get_recommended_items(user_preferences)
+        response_data = self._format_response(recommended_items)
+        return Response(response_data, status=status.HTTP_200_OK)
+
+    def _get_user_preferences(self, user_id: str) -> Optional[UserPreferences]:
+        """
+        Retrieves user preferences from the database and converts them into the UserPreferences Pydantic model.
+        :param user_id: The ID of the user whose preferences are to be fetched.
+        :return: A UserPreferences object populated with the user's preferences, or None if no preferences exist.
+        """
+        try:
+            # Fetch user preferences from the database
+            user_prefs = UserMoviePreferences.objects.get(user_id=user_id)
+            # Extracting the relevant preferences
+            genre = user_prefs.preferences.get("genre", [])
+            director = user_prefs.preferences.get("director", [])
+            actor = user_prefs.preferences.get("actor", [])
+            year_range = user_prefs.preferences.get("year", [])
+            # Handle year range if it's provided (expecting a list)
+            year_range_start, year_range_end = (
+                (year_range[0], year_range[-1])
+                if len(year_range) >= 2
+                else (None, None)
+            )
+            # Build the preferences dictionary
+            preferences_dict = {
+                "genre": genre,
+                "director": director,
+                "actor": actor,
+                "year_range_start": year_range_start,
+                "year_range_end": year_range_end,
+            }
+            # Instantiate UserPreferences with the preferences dictionary
+            return UserPreferences(
+                preferences=preferences_dict,
+                watch_history=user_prefs.watch_history,  # Assuming this exists in user_prefs
+            )
+        except UserMoviePreferences.DoesNotExist:
+            return None  # Return None if no preferences are found for the user
+
+    def _get_recommended_items(self, user_preferences: UserPreferences) -> list[Item]:
+        """
+        Generates a list of recommended items (in this case, movies) based on user preferences.
+        :param user_preferences: The preferences of the user.
+        :return: A list of recommended items as Item objects.
+        """
+        movies = Movie.objects.all()
+        items = [
+            Item(
+                id=movie.id,
+                attributes={
+                    "name": movie.title,
+                    "genre": movie.genres,
+                    "director": movie.extra_data.get("directors", ""),
+                    "year": movie.release_year,
+                },
+            )
+            for movie in movies
+        ]
+        return get_recommendations(user_preferences=user_preferences, items=items)
+
+    def _format_response(self, items: list[Item]) -> str:
+        print(items)
+        return format_to_json(items)

@@ -14,8 +14,42 @@ from django.core.exceptions import ValidationError
 from movies.models import UserMoviePreferences, Movie
 from .serializers import PreferencesSerializer
 
+import re
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
 
-# from movies.utils import create_or_update_movie
+
+# Function to detect strings starting with 'Q' followed by digits
+def detect_q_strings(text: str) -> list:
+    """
+    Detects strings that start with 'Q' followed by digits, useful for cleaning specific formats.
+    """
+    pattern = r"Q\d+"
+    return re.findall(pattern, text)
+
+
+def clean_text(text: str) -> str:
+    """
+    Cleans up the text data by removing punctuation, converting to lowercase,
+    removing stopwords, and lemmatizing the text.
+    """
+    if not isinstance(text, str):
+        return ""
+    # Convert text to lowercase
+    text = text.lower()
+    # Remove any non-alphanumeric characters, keeping words and digits
+    text = re.sub(r"[^a-zA-Z0-9\s]", "", text)
+    # Tokenize the text into words
+    words = word_tokenize(text)
+    # Remove stopwords. Words that carry little semantic meaning: nouns, articles etc.
+    stop_words = set(stopwords.words("english"))
+    words = [word for word in words if word not in stop_words]
+    # Initialize lemmatizer and lemmatize the words
+    lemmatizer = WordNetLemmatizer()
+    words = [lemmatizer.lemmatize(word) for word in words]
+    # Join words back into a cleaned string
+    return " ".join(words)
 
 
 def add_preference(user_id: int, new_preferences: Dict[str, Any]) -> None:
@@ -95,10 +129,36 @@ def user_watch_history(user_id: int) -> dict[str, Any]:
 #     return movies_processed
 
 
+# def parse_csv(file: IO[Any]) -> int:
+#     movies_processed = 0
+#     reader = csv.DictReader(file)
+#     for row in reader:
+#         create_or_update_movie(**row)
+#         movies_processed += 1
+#     return movies_processed
+
+
 def parse_csv(file: IO[Any]) -> int:
+    """
+    Parses and processes a CSV file for movie data, cleaning the fields.
+    """
     movies_processed = 0
     reader = csv.DictReader(file)
     for row in reader:
+        extra_data = row.pop("extra_data").replace("'", '"')
+        try:
+            extra_data_dict = json.loads(extra_data)
+        except json.decoder.JSONDecodeError:
+            extra_data_dict = {}
+        row["extra_data"] = extra_data_dict
+        try:
+            row["release_year"] = int(row["release_year"])
+        except ValueError:
+            continue
+        # Clean the fields before passing to movie creation
+        # row["title"] = clean_text(row["title"])
+        row["genres"] = [clean_text(genre) for genre in row["genres"].split(",")]
+        row["country"] = clean_text(row["country"])
         create_or_update_movie(**row)
         movies_processed += 1
     return movies_processed

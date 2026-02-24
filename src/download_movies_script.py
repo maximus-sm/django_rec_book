@@ -30,7 +30,7 @@ base_query = """
                 }
                 GROUP BY ?film ?filmLabel
             """
-            
+
 base_query = """SELECT ?film ?filmLabel
 (GROUP_CONCAT(DISTINCT ?genreLabel; separator=", ") AS ?genres)
 (GROUP_CONCAT(DISTINCT ?countryLabel; separator=", ") AS ?countries)
@@ -56,7 +56,7 @@ GROUP BY ?film ?filmLabel
 
 def fetch_by_year(year: int) -> list[dict[str, Any]]:
     data = []
-    limit = 1000  # Adjust as needed
+    limit = 500  # Adjust as needed
     offset = 0
     while True:
         # Dynamically construct the query for each year
@@ -66,7 +66,14 @@ def fetch_by_year(year: int) -> list[dict[str, Any]]:
         query += f" LIMIT {limit} OFFSET {offset}"
         url = "https://query.wikidata.org/sparql"
         response = requests.get(
-            url, headers={"Accept": "application/json"}, params={"query": query}
+            url,
+            headers={
+                "Accept": "application/json",
+                "User-Agent": "Simple-Bot/0.1 (Data analysis project)",
+            },
+            params={
+                "query": query,
+            },
         )
         if response.status_code == 200:
             batch_data = response.json()["results"]["bindings"]
@@ -77,15 +84,19 @@ def fetch_by_year(year: int) -> list[dict[str, Any]]:
             offset += limit
         else:
             print(
-                f"Failed to retrieve data for {year}, status code: {response.status_code}"
+                f"Failed to retrieve data for {year}, status code: {response.status_code}",
+                f"{response.text}",
             )
             break  # Exit loop in case of an HTTP error
     return data
 
 
 def fetch_all_data() -> None:
-    current_year = datetime.now().year
-    for year in tqdm(range(1888, current_year + 1), total=current_year + 1 - 1888):
+    current_year = 2023# datetime.now().year
+    start_year = 2023
+    for year in tqdm(
+        range(start_year, current_year + 1), total=current_year + 1 - start_year
+    ):
         data = fetch_by_year(year)
         # CSV file name adjusted for a comprehensive dataset
         csv_file_name = f"movies_data_{year}_to_current.csv"
@@ -104,27 +115,31 @@ def fetch_all_data() -> None:
                     ]
                 )
 
+
 def merge_all_files() -> None:
     to_replace = "0000"
     base_file_name = f"movies_data_{to_replace}_to_current.csv"
-    first_year = 1888
-    last_year = 1899
+    first_year = 1895
+    last_year = 2026
     final_file_name = "final_movies.csv"
-    with open(final_file_name,mode="w",newline="",encoding="utf-8") as final_file:
+    with open(final_file_name, mode="w", newline="", encoding="utf-8") as final_file:
         writer = csv.writer(final_file)
-        writer.writerow(["title", "genres", "country", "extra_data"])
-        for year in tqdm(range(first_year,last_year),total=last_year - first_year):
-            file_to_read_name = base_file_name.replace(to_replace,f"{year}")
-            with open(file_to_read_name,mode="r",newline="",encoding="utf-8") as filte_to_read:
+        writer.writerow(["title", "genres", "country", "extra_data", "release_year"])
+        for year in tqdm(range(first_year, last_year + 1), total=last_year - first_year + 1):
+            file_to_read_name = base_file_name.replace(to_replace, f"{year}")
+            with open(
+                file_to_read_name, mode="r", newline="", encoding="utf-8"
+            ) as filte_to_read:
                 reader = csv.reader(filte_to_read)
                 i = 0
                 for line in reader:
                     # print(line)
-                    if(i > 0):
-                        writer.writerow(line[1:])
+                    if i > 0:
+                        writer.writerow(line[1:] + [year])
                     i += 1
-                
+
 
 if __name__ == "__main__":
-    # fetch_all_data()
+    
+    #fetch_all_data()
     merge_all_files()
