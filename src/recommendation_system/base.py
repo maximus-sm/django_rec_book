@@ -38,24 +38,30 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    "whitenoise.runserver_nostatic",  # staticfiles
     "django.contrib.staticfiles",
     # 3rd-party
     "rest_framework",
     "rest_framework.authtoken",
     "rest_framework_simplejwt",
     "storages",
+    "drf_spectacular",
+    "corsheaders",
     # local
     "movies",
     "books",
     "api_auth",
+    "health",
 ]
 
 MIDDLEWARE = [
     # custom
-    "movies.middlewares.RequestTimeMiddleware",
+    # "movies.middlewares.RequestTimeMiddleware",
     # built-in
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",  # staticfiles
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -63,6 +69,15 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
+CORS_ORIGIN_WHITELIST = (
+    "http://localhost:3000",
+    "http://localhost:8000",
+)
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost",
+    "http://127.0.0.1",
+]
+# CSRF_TRUSTED_ORIGINS = ["http://localhost:3000"]
 ROOT_URLCONF = "recommendation_system.urls"
 
 TEMPLATES = [
@@ -101,6 +116,29 @@ DATABASES = {
     }
 }
 
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": os.getenv("REDIS_LOCATION", "redis://127.0.0.1:6379"),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    }
+}
+
+# Rate Limiting and Throttling
+REST_FRAMEWORK = {
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.UserRateThrottle",
+        "rest_framework.throttling.AnonRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "user": "1000/day",  # Custom rate for authenticated users
+        "anon": "100/day",  # Custom rate for anonymous users
+    },
+}
+
+
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 
@@ -133,6 +171,14 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.TokenAuthentication",
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Movie Recommendation API",
+    "DESCRIPTION": "An API for managing movies, user preferences, and recommendations.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
 }
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
@@ -150,6 +196,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = "static/"
+STATICFILES_DIRS = [BASE_DIR / "static"]  # new
+STATIC_ROOT = BASE_DIR / "staticfiles"  # new
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"  # new
 
 
 # Celery

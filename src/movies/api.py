@@ -1,8 +1,10 @@
 from typing import Optional
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
 
 from django_ratelimit.decorators import ratelimit
 from django.utils.decorators import method_decorator
 from django.shortcuts import get_object_or_404
+from django.views.decorators.cache import cache_page
 
 from rest_framework import status, generics
 from rest_framework.response import Response
@@ -75,13 +77,55 @@ from recommendations.services import (
 
 
 # For listing all movies and creating a new movie
+@extend_schema(
+    summary="Retrieve all movies",
+    description="Returns a paginated list of movies available in the system. Use filters and pagination parameters for large datasets.",
+    responses={
+        200: MovieSerializer(many=True),  # Response schema when successful
+    },
+    parameters=[
+        OpenApiParameter("page", int, description="Page number for pagination"),
+        OpenApiParameter("size", int, description="Page size for pagination"),
+    ],
+    methods=["GET"],  # Explicitly document GET
+)
+@extend_schema(
+    summary="Create a new movie",
+    description="Adds a new movie to the system. Requires authentication and appropriate permissions.",
+    request=MovieSerializer,  # Request body schema for POST
+    responses={
+        201: MovieSerializer,  # Successful creation response schema
+        400: OpenApiResponse(description="Bad Request. Validation error."),
+        403: OpenApiResponse(description="Forbidden. Insufficient permissions."),
+    },
+    methods=["POST"],  # Explicitly document POST
+)
 @method_decorator(ratelimit(key="ip", rate="5/m", method="GET", block=True), name="get")
 class MovieListCreateAPIView(generics.ListCreateAPIView):
     queryset = Movie.objects.all().order_by("id")
     serializer_class = MovieSerializer
     permission_classes = [IsAuthenticated, CustomDjangoModelPermissions]
 
+    @method_decorator(cache_page(60 * 15))
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
 
+
+@extend_schema(
+    summary="Update a movie by ID",
+    description="Updates the details of an existing movie. Requires authentication and proper permissions.",
+    request=MovieSerializer,  # Request body schema
+    responses={
+        200: MovieSerializer,  # Success response
+        400: OpenApiResponse(description="Bad Request. Validation error."),
+        403: OpenApiResponse(description="Forbidden. Insufficient permissions."),
+        404: OpenApiResponse(description="Movie not found."),
+    },
+    parameters=[
+        OpenApiParameter("id", int, description="ID of the movie to update"),
+    ],
+    methods=["GET"],
+)
 # For retrieving, updating, and deleting a single movie
 @permission_classes([IsAuthenticated, CustomDjangoModelPermissions])
 class MovieDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
@@ -185,6 +229,30 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 
 
+@extend_schema(
+    summary="Upload a CSV or JSON file for background processing",
+    description=(
+        "Uploads a CSV or JSON file and enqueues a background task for processing the file. "
+        "The user must be authenticated. The file is saved with a unique name, "
+        "and the task is asynchronously processed. Supported file types: CSV and JSON."
+    ),
+    request=GeneralFileUploadSerializer,  # Expected input for the file upload
+    responses={
+        202: OpenApiResponse(
+            description="File uploaded successfully. Job enqueued for background processing.",
+            examples={"application/json": {"message": "Job enqueued for processing."}},
+        ),
+        400: OpenApiResponse(
+            description="Bad Request. Validation error or unsupported file type."
+        ),
+    },
+    parameters=[
+        OpenApiParameter(
+            name="file", type="file", description="The CSV or JSON file to upload"
+        ),
+    ],
+    methods=["POST"],  # Explicitly documents the POST method
+)
 @permission_classes([IsAuthenticated])
 class GeneralUploadView(APIView):
     def post(self, request, *args: Any, **kwargs: Any) -> Response:

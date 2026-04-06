@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: recommendation-system-migrate
+spec:
+  template:
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: recommedation-system-app
+          image: nekerek/django_rest_book
+          command: ["/app/bin/python", "manage.py", "migrate"]
+          env:
+            - name: DJANGO_SETTINGS_MODULE
+              value: "recommendation_system.production"
+          envFrom:
+            - configMapRef:
+                name: recommendation-system-settings
+            - secretRef:
+                name: recommendation-system-secrets
+      restartPolicy: Never
+  backoffLimit: 4

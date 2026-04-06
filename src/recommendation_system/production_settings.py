@@ -1,5 +1,5 @@
 import os
-from .settings import *
+from .base import *
 
 DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
 AWS_ACCESS_KEY_ID = os.environ["AWS_ACCESS_KEY_ID"]

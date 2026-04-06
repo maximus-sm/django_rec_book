@@ -8,15 +8,21 @@ dependencies = [
     "boto3<1.36.0",
     "celery>=5.6.2",
     "django>=6.0",
+    "django-cors-headers>=4.9.0",
     "django-ratelimit>=4.1.0",
+    "django-redis>=6.0.0",
     "django-storages[boto3]>=1.14.6",
     "djangorestframework>=3.16.1",
     "djangorestframework-simplejwt>=5.5.1",
+    "drf-spectacular>=0.29.0",
+    "environs>=14.6.0",
+    "gunicorn>=25.1.0",
     "nltk>=3.9.2",
     "psycopg2-binary>=2.9.11",
     "pydantic>=2.12.5",
     "redis>=7.1.0",
     "scikit-learn>=1.8.0",
+    "whitenoise>=6.12.0",
 ]
 
 [dependency-groups]
@@ -33,4 +39,4 @@ dev = [
 
 [tool.pytest.ini_options]
 pythonpath = ["src"] 
-DJANGO_SETTINGS_MODULE = "recommendation_system.settings"
+DJANGO_SETTINGS_MODULE = "recommendation_system.dev"
