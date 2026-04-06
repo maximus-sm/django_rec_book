@@ -8,6 +8,11 @@ Leonardo Luis Lazzaro](https://www.amazon.com/Ultimate-Development-Django-REST-F
 
 
 ## The overview and recommendations.
+### Chapter 4
+- I have added all_movies file which contains movies, from wikidata including the `year` field(the original file from the book lack of it).Note that after uploading it to your db, you'll get less movie amount, due to duplicates.
+- if you would like to download data yourself, include the ["User-Agent"](https://foundation.wikimedia.org/wiki/Policy:Wikimedia_Foundation_User-Agent_Policy) header, which increases the 'speed'.
+- Increase the `country` CharField's max_length up to 250. Some movies 'have' dozens of countries.
+- Don't use `clean_text` function for the `title` field,since some movies has no Latin letters, and would be excluded otherwise.
 
 ### Chapter 8
 This chapter mainly covers Kubernets and orchestration.
